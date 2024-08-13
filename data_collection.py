@@ -101,4 +101,4 @@ class DataCollection():
 
 if __name__ == "__main__":
     data_collect = DataCollection(lang="id", num_pages=10, num_item_per_page=10)
-    data_collect.search("kandungan skincare yang cocok untuk jerawat papula")
+    data_collect.search("kandungan skincare yang cocok untuk jerawat pustula")
