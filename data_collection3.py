@@ -6,9 +6,7 @@ import json
 
 from selenium import webdriver
 from bs4 import BeautifulSoup
-
 import trafilatura
-
 from tqdm import tqdm
 
 class DataCollection():
@@ -27,6 +25,9 @@ class DataCollection():
         if driver is None:
             chrome_options = webdriver.ChromeOptions()
             chrome_options.add_argument('user-data-dir=C:/Users/haica/AppData/Local/Google/Chrome/User Data')
+            chrome_options.add_argument('--headless')  # Menjalankan Chrome dalam mode headless
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--no-sandbox')
             driver = webdriver.Chrome(options = chrome_options)
             setattr(self.thread_local, 'driver', driver)
         return driver
@@ -37,29 +38,29 @@ class DataCollection():
             driver_visit.implicitly_wait(10)
             driver_visit.set_page_load_timeout(30)
             driver_visit.get(target_url)
-            time.sleep(10)
+            time.sleep(5)  # Kurangi waktu tunggu agar lebih efisien
             
             page_content = trafilatura.bare_extraction(driver_visit.page_source)
             
-            title = page_content["title"]
-            author = page_content["author"]
-            date = page_content["date"]
-            url = page_content["url"]
-            if page_content["text"] != "" and page_content["text"] != None:
-                article = page_content["text"]
-            else:
-                article = page_content["raw_text"]
-            
-            search_content = {
-                "title": title,
-                "date": date,
-                "author": author,
-                "url": url,
-                "article": article,
-            }
+            if page_content:
+                title = page_content.get("title", "No Title")
+                author = page_content.get("author", "Unknown")
+                date = page_content.get("date", "Unknown")
+                url = target_url
+                article = page_content.get("text") or page_content.get("raw_text", "No Content")
                 
-            return search_content
-        except:
+                search_content = {
+                    "title": title,
+                    "date": date,
+                    "author": author,
+                    "url": url,
+                    "article": article,
+                }
+                return search_content
+            else:
+                return False
+        except Exception as e:
+            print(f"Error visiting {target_url}: {e}")
             return False
             
     def fetch_search_result(self, url, page, query="no_name"):
@@ -73,21 +74,19 @@ class DataCollection():
         search_lists = page_content.find_all("div", attrs={"class": 'MjjYud'})
         search_lists = search_lists[:self.num_item_per_page]
         
-        for cnt in tqdm(search_lists):
-            title = cnt.find_all("h3", attrs={"class":  'DKV0Md'})
+        for cnt in tqdm(search_lists, desc=f"Processing page {page+1}"):
+            title = cnt.find_all("h3", attrs={"class": 'DKV0Md'})
             
-            if len(title) > 0:
+            if title:
                 title = title[0].text
-                source_url = cnt.find_all("a", attrs={"jsname": "UWckNb"})[0]["href"]
-                print(source_url)
+                source_url = cnt.find("a", href=True)["href"]
+                
                 if source_url.endswith(".pdf"):
                     continue
                 
                 search_content_result = self.visit_content(source_url)
-                if not search_content_result:
-                    continue
-                
-                all_datasets.append(search_content_result)
+                if search_content_result:
+                    all_datasets.append(search_content_result)
 
         return all_datasets
     
@@ -114,5 +113,5 @@ class DataCollection():
             
 
 if __name__ == "__main__":
-    data_collect = DataCollection(lang="id", num_pages=25, num_item_per_page=10)
-    data_collect.search("kandungan skincare untuk jerawat papula")
+    data_collect = DataCollection(lang="id", num_pages=1, num_item_per_page=10)
+    data_collect.search("kandungan skincare yang cocok untuk jerawat pustula")
